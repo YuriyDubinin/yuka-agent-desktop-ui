@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import type { ChatMessage } from '../state/chat';
 import { Message, ThinkingIndicator } from './Message';
@@ -8,13 +8,24 @@ interface MessageListProps {
   awaitingReply: boolean;
 }
 
-const STICK_THRESHOLD_PX = 120;
+/** Elements the panel measures to size itself to the conversation. */
+export interface MessageListHandle {
+  scroller: HTMLDivElement | null;
+  content: HTMLDivElement | null;
+}
+
+const STICK_THRESHOLD_PX = 80;
 
 /** Scrollable transcript that stays pinned to the bottom while the user is there. */
-export function MessageList({ messages, awaitingReply }: MessageListProps) {
+export const MessageList = forwardRef<MessageListHandle, MessageListProps>(function MessageList(
+  { messages, awaitingReply },
+  ref,
+) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+
+  useImperativeHandle(ref, () => ({ scroller: scrollRef.current, content: contentRef.current }));
 
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -25,13 +36,15 @@ export function MessageList({ messages, awaitingReply }: MessageListProps) {
       const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
       stickToBottom.current = distance < STICK_THRESHOLD_PX;
     };
-    // Content grows as words stream in – follow it while pinned.
-    const observer = new ResizeObserver(() => {
+    // Content grows as words stream in (and the window grows with it) – follow it.
+    const follow = () => {
       if (stickToBottom.current) scroller.scrollTo({ top: scroller.scrollHeight });
-    });
+    };
+    const observer = new ResizeObserver(follow);
 
     scroller.addEventListener('scroll', onScroll, { passive: true });
     observer.observe(content);
+    observer.observe(scroller);
     return () => {
       scroller.removeEventListener('scroll', onScroll);
       observer.disconnect();
@@ -57,4 +70,4 @@ export function MessageList({ messages, awaitingReply }: MessageListProps) {
       </div>
     </div>
   );
-}
+});

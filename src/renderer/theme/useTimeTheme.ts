@@ -1,44 +1,36 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { isThemeMode, type ThemeMode } from '../../shared/protocol';
 import { applyTheme } from './applyTheme';
-import { THEME_ORDER, THEMES, type ThemeMode, type ThemeName, themeForHour } from './themes';
+import { THEMES, type ThemeName, themeForHour } from './themes';
 
-const STORAGE_KEY = 'yuka.theme-mode';
 const CLOCK_INTERVAL_MS = 30_000;
-
-const MODES: ThemeMode[] = ['auto', 'morning', 'day', 'evening', 'night'];
-
-function readStoredMode(): ThemeMode {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && (MODES as string[]).includes(stored)) return stored as ThemeMode;
-  } catch {
-    // Storage unavailable – fall back to auto.
-  }
-  return 'auto';
-}
 
 const currentTimeTheme = () => themeForHour(new Date().getHours());
 
-/** Theme to paint before React mounts (avoids a flash of the wrong theme). */
-export function resolveInitialTheme(): ThemeName {
-  const mode = readStoredMode();
+/** The theme mode main put into the page URL (`?theme=…`), so the first paint is right. */
+export function initialThemeMode(): ThemeMode {
+  const fromUrl = new URLSearchParams(window.location.search).get('theme');
+  return isThemeMode(fromUrl) ? fromUrl : 'auto';
+}
+
+export function resolveTheme(mode: ThemeMode): ThemeName {
   return mode === 'auto' ? currentTimeTheme() : mode;
 }
 
 /**
- * Theme selection: "auto" follows the local clock (re-checked every 30 s), otherwise the
- * user's choice is used and persisted. Applies the result to the document.
+ * The active theme for a mode chosen in main (context menu). "auto" follows the local
+ * clock, re-checked every 30 s – both windows compute it the same way. Applies the result
+ * to the document and aligns the native vibrancy with its light/dark scheme.
  */
-export function useTimeTheme() {
-  const [mode, setModeState] = useState<ThemeMode>(readStoredMode);
+export function useTimeTheme(mode: ThemeMode): ThemeName {
   const [clockTheme, setClockTheme] = useState<ThemeName>(currentTimeTheme);
 
+  // The clock is always followed (cheap), so switching to "auto" is instantly right.
   useEffect(() => {
-    if (mode !== 'auto') return;
     const timer = setInterval(() => setClockTheme(currentTimeTheme()), CLOCK_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [mode]);
+  }, []);
 
   const theme: ThemeName = mode === 'auto' ? clockTheme : mode;
 
@@ -47,21 +39,5 @@ export function useTimeTheme() {
     window.yuka?.setAppearance?.(THEMES[theme].scheme);
   }, [theme]);
 
-  const setMode = useCallback((next: ThemeMode) => {
-    setModeState(next);
-    if (next === 'auto') setClockTheme(currentTimeTheme());
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Not persisted – still applied for this session.
-    }
-  }, []);
-
-  /** Switches to the next theme (morning → day → evening → night → morning). */
-  const cycle = useCallback(() => {
-    const next = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
-    setMode(next);
-  }, [theme, setMode]);
-
-  return { mode, theme, setMode, cycle, modes: MODES };
+  return theme;
 }

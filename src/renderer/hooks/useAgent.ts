@@ -2,7 +2,10 @@ import { useCallback, useEffect, useReducer } from 'react';
 
 import { chatReducer, initialChatState } from '../state/chat';
 
-/** Connects the chat state to the agent bridge exposed by the preload script. */
+/**
+ * The conversation, as recorded by main. Both windows run this hook; main replays the
+ * whole session on `ready()`, so they always show the same transcript.
+ */
 export function useAgent() {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
 
@@ -14,11 +17,10 @@ export function useAgent() {
     return unsubscribe;
   }, []);
 
+  // Main echoes the message back as a `user` event, which adds it to the transcript.
   const send = useCallback((text: string) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    dispatch({ type: 'user_sent', text: trimmed, at: Date.now() });
-    window.yuka.sendMessage(trimmed);
+    if (trimmed) window.yuka.sendMessage(trimmed);
   }, []);
 
   return { state, send };

@@ -53,8 +53,8 @@ export interface FrameContext {
 export interface ShaderLoopOptions {
   canvas: HTMLCanvasElement;
   fragmentShader: string;
-  /** Upper bound for frames per second. */
-  fps: number;
+  /** Upper bound for frames per second; a function is re-read every frame. */
+  fps: number | (() => number);
   /** Render resolution relative to CSS pixels × devicePixelRatio. */
   resolutionScale?: number;
   premultipliedAlpha?: boolean;
@@ -142,7 +142,7 @@ export function createShaderLoop(options: ShaderLoopOptions): ShaderLoop | null 
   observer.observe(canvas);
   resize();
 
-  const frameInterval = 1000 / fps;
+  const frameInterval = () => 1000 / (typeof fps === 'function' ? fps() : fps);
   const reduced = prefersReducedMotion();
   const start = performance.now();
   let last = start;
@@ -164,7 +164,7 @@ export function createShaderLoop(options: ShaderLoopOptions): ShaderLoop | null 
   const tick = (now: number) => {
     if (disposed) return;
     raf = requestAnimationFrame(tick);
-    if (document.hidden || now - lastDraw < frameInterval - 1) return;
+    if (document.hidden || now - lastDraw < frameInterval() - 1) return;
 
     lastDraw = now;
     frame.dt = Math.min((now - last) / 1000, 0.1);

@@ -4,52 +4,33 @@
    registered via CSS.registerProperty so theme changes cross-fade.
    ============================================================ */
 
-@property --aura-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
 :root {
   /* Typography */
   --font-sans: 'Manrope Variable', 'Manrope', system-ui, -apple-system, sans-serif;
-  --font-display: var(--font-sans);
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 
   --text-xs: 10.5px;
-  --text-sm: 12.5px;
-  --text-md: 14.5px;
-  --text-lg: 15.5px;
-  --text-xl: 21px;
-  --text-2xl: 24px;
+  --text-sm: 12px;
+  --text-md: 13.5px;
+  --text-lg: 14px;
 
   /* Spacing (4px scale) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
 
-  /* Radii */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 20px;
+  /* Radii. The panel matches the corner macOS gives a frameless vibrancy window. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-panel: 12px;
   --radius-full: 999px;
 
   /* Motion */
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-emphasized: cubic-bezier(0.2, 0.75, 0.15, 1);
-  --ease-spring: cubic-bezier(0.34, 1.45, 0.5, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.55, 0, 0.85, 0.35);
   --dur-fast: 160ms;
-  --dur-base: 320ms;
-  --dur-slow: 640ms;
-
-  /* Pointer light (set by usePointerLight) */
-  --mx: -999px;
-  --my: -999px;
-
-  /* Theme switcher geometry */
-  --switch-size: 30px;
+  --dur-base: 260ms;
+  --dur-exit: 420ms;
 }
