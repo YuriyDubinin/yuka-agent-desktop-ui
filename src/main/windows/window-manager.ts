@@ -97,6 +97,10 @@ export class WindowManager {
     this.panelFade = new OpacityAnimator(this.panel);
     this.orb = createOrbWindow(page, this.initialOrbBounds());
 
+    // A click anywhere outside Yuka takes focus from the panel: close it at once.
+    // (The orb is not focusable, so clicking the sphere does not count as outside.)
+    this.panel.on('blur', () => this.dispatch({ type: 'dismiss' }));
+
     for (const window of [this.orb, this.panel]) {
       window.on('closed', () => app.quit()); // one face, two windows: closing either ends it
     }

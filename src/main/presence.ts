@@ -1,17 +1,18 @@
 // When the dialog panel is visible – a pure state machine (no Electron, no timers).
 //
-//   hidden ──hover──▶ shown ──pointer left, nothing holds it──▶ lingering (10 s countdown)
+//   hidden ──hover──▶ shown ──pointer left, nothing holds it──▶ lingering (1 s countdown)
 //     ▲                 ▲ ◀──────────── hover / something holds it ─────────┘   │
 //     │                 └──────── hover ──────── fading (420 ms) ◀── deadline ─┘
 //     └──────────────────────────── fade over ───────┘
 //
 // "Holds" pause the countdown: the panel is pinned, the user is typing (composer focused
-// with a draft) or Yuka is answering. Esc / the shortcut dismiss the panel at once.
+// with a draft) or Yuka is answering. Esc, the shortcut or a click outside Yuka (the panel
+// loses focus) dismiss it at once.
 // Time is passed in by the caller, which makes every transition testable.
 
 import type { PresencePhase } from '../shared/protocol';
 
-export const HIDE_DELAY_MS = 10_000;
+export const HIDE_DELAY_MS = 1_000;
 export const FADE_OUT_MS = 420;
 
 export interface PresenceState {

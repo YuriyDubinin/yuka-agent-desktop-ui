@@ -42,7 +42,7 @@ describe('presence', () => {
     assert.equal(state.phase, 'shown');
   });
 
-  test('leaving starts a 10 s countdown, then fades and hides', () => {
+  test('leaving starts a 1 s countdown, then fades and hides', () => {
     let state = run([
       [0, enterOrb],
       [1_000, leave],
@@ -60,24 +60,26 @@ describe('presence', () => {
     assert.equal(state.phase, 'hidden');
   });
 
-  test('coming back on the 9th second cancels the countdown; leaving again restarts it', () => {
+  test('coming back before the countdown ends cancels it; leaving again restarts it', () => {
+    const back = HIDE_DELAY_MS * 0.9;
+    const leftAgain = HIDE_DELAY_MS * 0.95;
     let state = run([
       [0, enterOrb],
       [0, leave],
-      [9_000, enterPanel],
+      [back, enterPanel],
     ]);
     assert.equal(state.phase, 'shown');
     assert.equal(state.hideAt, null);
 
     state = run(
       [
-        [9_500, leave],
-        [15_000, tick],
+        [leftAgain, leave],
+        [HIDE_DELAY_MS + 1, tick], // the old deadline has passed…
       ],
       state,
     );
-    assert.equal(state.phase, 'lingering', 'a fresh 10 s from 9.5 s, not the old deadline');
-    assert.equal(reducePresence(state, tick, 19_500).phase, 'fading');
+    assert.equal(state.phase, 'lingering', '…but a fresh countdown runs from the second leave');
+    assert.equal(reducePresence(state, tick, leftAgain + HIDE_DELAY_MS).phase, 'fading');
   });
 
   test('hovering during the fade brings the panel back', () => {
