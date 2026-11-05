@@ -35,7 +35,6 @@ export const Message = memo(function Message({ message }: { message: ChatMessage
       <div className="msg__body">
         <div className="msg__text">
           <RichText text={message.text} animate stagger={message.id === 'greeting'} />
-          {message.streaming && <span className="stream-tail" aria-hidden="true" />}
         </div>
         {time}
       </div>
@@ -43,16 +42,11 @@ export const Message = memo(function Message({ message }: { message: ChatMessage
   );
 });
 
-/** Three drops of light that merge and part while Yuka is thinking. */
+/** While Yuka is thinking: just the small glass sphere, its inner glow pulsing and shifting. */
 export function ThinkingIndicator() {
   return (
     <div className="msg msg--assistant msg--thinking" aria-label="Юка думает">
       <MiniCore mood="thinking" />
-      <div className="thinking" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
     </div>
   );
 }

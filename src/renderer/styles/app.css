@@ -404,9 +404,8 @@ button {
   pointer-events: none;
 }
 
-/* Glass orb with an inner glow, drawn in CSS (fallback and message avatars). */
-.core__fallback,
-.mini-core {
+/* Glass orb with an inner glow, drawn in CSS (WebGL fallback). */
+.core__fallback {
   border-radius: 50%;
   background:
     radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.95) 0 5%, transparent 13%),
@@ -439,33 +438,87 @@ button {
   display: block;
 }
 
+/* Small glass sphere next to replies (and the thinking indicator): a clear shell with
+   an ember inside that pulses and slowly turns, so its colours drift and swap. */
 .mini-core {
+  --ember-duration: 5s;
   position: relative;
   flex: none;
   width: 18px;
   height: 18px;
   margin-top: 4px;
-  animation: breathe 4.5s ease-in-out infinite;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--c-core2) 10%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-core3) 45%, transparent),
+    0 0 10px var(--c-accent-glow);
+  animation: orb-glow var(--ember-duration) ease-in-out infinite;
 }
 
+/* The ember: two glows of different colour, pulsing and rotating. */
+.mini-core::before {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 40%, var(--c-core3) 0 6%, var(--c-core1) 30%, transparent 64%),
+    radial-gradient(circle at 66% 64%, var(--c-core2) 0 12%, transparent 62%);
+  filter: blur(0.6px);
+  animation: ember var(--ember-duration) ease-in-out infinite;
+}
+
+/* Glass highlight and rim on top. */
 .mini-core::after {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: 0;
   border-radius: 50%;
-  border: 1px solid transparent;
-  border-top-color: var(--c-accent);
-  opacity: 0;
-  transition: opacity var(--dur-base) var(--ease-standard);
+  background:
+    radial-gradient(circle at 33% 27%, rgba(255, 255, 255, 0.95) 0 6%, transparent 15%),
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 64%,
+      color-mix(in srgb, var(--c-core3) 50%, transparent) 74%,
+      transparent 76%
+    );
+}
+
+.mini-core--thinking {
+  --ember-duration: 2s;
 }
 
 .mini-core--talking {
-  animation: breathe 0.9s ease-in-out infinite;
+  --ember-duration: 1.3s;
 }
 
-.mini-core--thinking::after {
-  opacity: 1;
-  animation: spin 1.1s linear infinite;
+@keyframes ember {
+  0% {
+    transform: rotate(0deg) scale(0.78);
+    opacity: 0.7;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(360deg) scale(0.78);
+    opacity: 0.7;
+  }
+}
+
+@keyframes orb-glow {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--c-core3) 40%, transparent),
+      0 0 6px var(--c-accent-glow);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--c-core3) 60%, transparent),
+      0 0 16px var(--c-accent-glow);
+  }
 }
 
 @keyframes breathe {
@@ -588,48 +641,21 @@ button {
   font-weight: 700;
 }
 
-/* Word-by-word materialisation */
+/* Word-by-word materialisation: each new word quietly comes into focus in place. */
 .w {
   display: inline-block;
   max-width: 100%;
-  animation: word-in 560ms var(--ease-emphasized) both;
+  animation: word-in 420ms cubic-bezier(0.25, 0.1, 0.25, 1) both;
 }
 
 @keyframes word-in {
   from {
     opacity: 0;
-    filter: blur(6px);
-    transform: translateY(0.2em);
+    filter: blur(3px);
   }
   to {
     opacity: 1;
     filter: blur(0);
-    transform: none;
-  }
-}
-
-.stream-tail {
-  display: inline-block;
-  width: 1.4em;
-  height: 0.62em;
-  margin-left: 0.3em;
-  vertical-align: 0.02em;
-  border-radius: var(--radius-full);
-  background: linear-gradient(90deg, transparent, var(--c-accent));
-  box-shadow: 0 0 14px var(--c-accent-glow);
-  transform-origin: left center;
-  animation: tail 1.1s var(--ease-standard) infinite;
-}
-
-@keyframes tail {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scaleX(0.55);
-  }
-  50% {
-    opacity: 1;
-    transform: scaleX(1);
   }
 }
 
@@ -676,59 +702,6 @@ button {
     opacity: 1;
     transform: none;
     clip-path: inset(0 0 0 0 round 16px);
-  }
-}
-
-/* Thinking: a hairline with a pulse of light scanning across it */
-.thinking {
-  position: relative;
-  align-self: center;
-  width: 96px;
-  height: 1px;
-  margin-left: var(--space-4);
-  overflow: visible;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--c-accent) 35%, transparent),
-    transparent
-  );
-}
-
-.thinking span {
-  position: absolute;
-  top: -1px;
-  left: 0;
-  width: 26px;
-  height: 3px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(90deg, transparent, var(--c-accent), transparent);
-  box-shadow: 0 0 12px var(--c-accent-glow);
-  animation: scan 1.6s var(--ease-standard) infinite;
-}
-
-.thinking span:nth-child(2) {
-  animation-delay: 0.53s;
-  opacity: 0.6;
-}
-
-.thinking span:nth-child(3) {
-  animation-delay: 1.06s;
-  opacity: 0.35;
-}
-
-@keyframes scan {
-  0% {
-    transform: translateX(-10px);
-    opacity: 0;
-  }
-  20%,
-  80% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(80px);
-    opacity: 0;
   }
 }
 
