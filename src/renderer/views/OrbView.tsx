@@ -35,7 +35,8 @@ export function OrbView() {
   const gesture = useRef<{ x: number; y: number; dragging: boolean } | null>(null);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    // Ctrl+click is a right click on a Mac: it opens the menu, which swallows the release.
+    if (event.button !== 0 || event.ctrlKey) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     gesture.current = { x: event.screenX, y: event.screenY, dragging: false };
     window.yuka.orbPress();
@@ -80,8 +81,10 @@ export function OrbView() {
         onPointerMove={onPointerMove}
         onPointerUp={() => finish(true)}
         onPointerCancel={() => finish(false)}
+        onLostPointerCapture={() => finish(false)}
         onContextMenu={(event) => {
           event.preventDefault();
+          finish(false); // a gesture in progress must not outlive the menu
           window.yuka.orbContextMenu();
         }}
       />

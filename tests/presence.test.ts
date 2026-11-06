@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 
 import {
   FADE_OUT_MS,
+  FOCUS_GRACE_MS,
   HIDE_DELAY_MS,
   initialPresence,
   type PresenceInput,
@@ -180,5 +181,103 @@ describe('presence', () => {
     const shown = run([[0, enterOrb]]);
     assert.equal(reducePresence(shown, tick, 1e9), shown);
     assert.equal(reducePresence(initialPresence, tick, 1e9), initialPresence);
+  });
+
+  // ---------------------------------------------------------------- never losing the panel
+
+  test('the same pointer input every tick changes nothing (same object)', () => {
+    const shown = run([[0, enterOrb]]);
+    assert.equal(reducePresence(shown, enterOrb, 50), shown);
+    const hidden = initialPresence;
+    assert.equal(reducePresence(hidden, leave, 50), hidden);
+  });
+
+  test('cursor resting on the orb reopens a panel hidden by anything else', () => {
+    // e.g. the window was hidden while the state machine missed the change of pointer
+    const stuck = { ...run([[0, enterOrb]]), phase: 'hidden' as const };
+    assert.equal(reducePresence(stuck, enterOrb, 100).phase, 'shown');
+  });
+
+  test('Esc under the cursor: stays closed until the cursor leaves, then hover works', () => {
+    let state = run([
+      [0, enterOrb],
+      [500, { type: 'dismiss' }],
+      [500 + FADE_OUT_MS, tick],
+      [600 + FADE_OUT_MS, enterOrb], // still on the orb, every tick
+      [700 + FADE_OUT_MS, enterOrb],
+    ]);
+    assert.equal(state.phase, 'hidden');
+    assert.equal(state.hoverSuppressed, true);
+
+    state = run(
+      [
+        [800 + FADE_OUT_MS, leave],
+        [900 + FADE_OUT_MS, enterOrb],
+      ],
+      state,
+    );
+    assert.equal(state.phase, 'shown');
+    assert.equal(state.hoverSuppressed, false);
+  });
+
+  test('Esc away from Yuka does not suppress hover', () => {
+    const state = run([
+      [0, { type: 'reveal' }],
+      [10, { type: 'dismiss' }],
+    ]);
+    assert.equal(state.hoverSuppressed, false);
+  });
+
+  test('reveal opens from hidden, fading and while hover is suppressed', () => {
+    assert.equal(run([[0, { type: 'reveal' }]]).phase, 'lingering', 'no hover: countdown');
+    const fading = run([
+      [0, enterOrb],
+      [0, leave],
+      [HIDE_DELAY_MS, tick],
+    ]);
+    assert.equal(fading.phase, 'fading');
+    assert.equal(reducePresence(fading, { type: 'reveal' }, HIDE_DELAY_MS + 10).phase, 'lingering');
+
+    const suppressed = run([
+      [0, enterOrb],
+      [10, { type: 'dismiss' }],
+      [10 + FADE_OUT_MS, tick],
+    ]);
+    const revealed = reducePresence(suppressed, { type: 'reveal' }, 1_000);
+    assert.equal(revealed.phase, 'shown', 'cursor on the orb keeps it open');
+    assert.equal(revealed.hoverSuppressed, false);
+  });
+
+  test('focus lost while the cursor is on Yuka does not close the panel', () => {
+    const state = run([
+      [0, enterOrb],
+      [1_000, { type: 'focusLost', overYuka: true, menuOpen: false }],
+    ]);
+    assert.equal(state.phase, 'shown');
+  });
+
+  test('focus lost right after the panel appeared does not close it', () => {
+    const state = run([
+      [0, { type: 'pin', pinned: true }],
+      [FOCUS_GRACE_MS - 1, { type: 'focusLost', overYuka: false, menuOpen: false }],
+    ]);
+    assert.equal(state.phase, 'shown');
+  });
+
+  test("focus lost to Yuka's own menu does not close the panel", () => {
+    const state = run([
+      [0, { type: 'pin', pinned: true }],
+      [5_000, { type: 'focusLost', overYuka: false, menuOpen: true }],
+    ]);
+    assert.equal(state.phase, 'shown');
+  });
+
+  test('a real click outside closes the panel at once', () => {
+    const state = run([
+      [0, { type: 'pin', pinned: true }],
+      [5_000, { type: 'focusLost', overYuka: false, menuOpen: false }],
+    ]);
+    assert.equal(state.phase, 'fading');
+    assert.equal(state.pinned, false);
   });
 });

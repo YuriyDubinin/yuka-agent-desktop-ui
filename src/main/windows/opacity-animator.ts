@@ -38,6 +38,11 @@ export class OpacityAnimator {
     }
   }
 
+  /** An animation is running (it owns the window's opacity until it ends). */
+  isAnimating(): boolean {
+    return this.timer !== null;
+  }
+
   stop(): void {
     if (this.timer !== null) {
       clearInterval(this.timer);
