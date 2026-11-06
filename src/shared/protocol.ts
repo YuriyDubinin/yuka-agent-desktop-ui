@@ -1,23 +1,75 @@
 // Wire protocol between the `yuka` agent (C++) and this desktop face.
 // Transport: Unix domain socket, one JSON object per line (NDJSON).
 // The agent is the server; the face connects to the path from $YUKA_SOCKET.
+// Specification: ../yuka-agent/docs/face-protocol.md (version 2 adds tools, MCP-shaped).
+
+/** The protocol version this face speaks. */
+export const PROTOCOL_VERSION = 2;
 
 export interface AgentInfo {
   name: string;
   model: string;
 }
 
-/** Messages sent by the agent to the face. */
+/** Conversation messages sent by the agent to the face (they make up the transcript). */
 export type AgentEvent =
-  | { type: 'hello'; agent: AgentInfo; greeting: string }
+  | { type: 'hello'; agent: AgentInfo; greeting: string; protocol?: number }
   | { type: 'assistant_start'; id: number }
   | { type: 'assistant_chunk'; id: number; text: string }
   | { type: 'assistant_end'; id: number }
   | { type: 'error'; message: string }
   | { type: 'bye' };
 
+/** The agent asks the face to run one of its tools (v2). Handled in main, not shown as chat. */
+export interface ToolCall {
+  type: 'tool_call';
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+/** Everything the agent can send. */
+export type AgentMessage = AgentEvent | ToolCall;
+
+// ------------------------------------------------------------------ tools (v2, MCP-shaped)
+
+/** JSON Schema subset used by tool arguments (see src/main/tools/schema.ts). */
+export interface JsonSchema {
+  type?: 'object' | 'string' | 'number' | 'integer' | 'boolean' | 'array';
+  description?: string;
+  enum?: readonly (string | number | boolean)[];
+  properties?: Record<string, JsonSchema>;
+  required?: readonly string[];
+  additionalProperties?: boolean;
+  items?: JsonSchema;
+}
+
+export interface ToolAnnotations {
+  readOnlyHint?: boolean;
+  /** Irreversible or very noticeable: the face asks the user before running it. */
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+}
+
+/** A tool as advertised to the agent (field names as in MCP `tools/list`). */
+export interface ToolDefinition {
+  name: string;
+  title: string;
+  description: string;
+  inputSchema: JsonSchema & { type: 'object' };
+  annotations: ToolAnnotations;
+}
+
+export interface ToolResultContent {
+  type: 'text';
+  text: string;
+}
+
 /** Messages sent by the face to the agent. */
-export type FaceCommand = { type: 'user_message'; text: string };
+export type FaceCommand =
+  | { type: 'user_message'; text: string }
+  | { type: 'capabilities'; protocol: number; instructions: string; tools: ToolDefinition[] }
+  | { type: 'tool_result'; id: string; content: ToolResultContent[]; isError: boolean };
 
 export type ConnectionState =
   | 'connecting' // trying to reach the agent socket
@@ -32,7 +84,24 @@ export type ConnectionState =
 export type FaceEvent =
   | { kind: 'agent'; event: AgentEvent }
   | { kind: 'connection'; state: ConnectionState }
-  | { kind: 'user'; text: string };
+  | { kind: 'user'; text: string }
+  /** Yuka runs one of the face's tools: shown as a quiet line in the transcript. */
+  | {
+      kind: 'tool';
+      callId: string;
+      title: string;
+      phase: 'start' | 'end';
+      ok?: boolean;
+      summary?: string;
+    }
+  /** A destructive tool waits for the user's "yes" (see confirmAnswer). */
+  | {
+      kind: 'confirm';
+      callId: string;
+      question: string;
+      phase: 'ask' | 'answered';
+      accepted?: boolean;
+    };
 
 // ------------------------------------------------------------------ UI (main ↔ windows)
 
@@ -96,6 +165,8 @@ export interface YukaBridge {
   /** Preferred height of the panel content in CSS pixels. */
   setPanelHeight(height: number): void;
   hidePanel(): void;
+  /** The user's answer to a `confirm` event. */
+  confirmAnswer(callId: string, accepted: boolean): void;
   quit(): void;
 }
 
@@ -113,6 +184,7 @@ export const IPC = {
   composerState: 'yuka:composer-state',
   panelHeight: 'yuka:panel-height',
   hidePanel: 'yuka:hide-panel',
+  confirmAnswer: 'yuka:confirm-answer',
   quit: 'yuka:quit',
 } as const;
 
@@ -129,6 +201,21 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
     type === 'assistant_end' ||
     type === 'error' ||
     type === 'bye'
+  );
+}
+
+/** A well-formed `tool_call`; anything else of that type is answered with an error. */
+export function isToolCall(value: unknown): value is ToolCall {
+  if (typeof value !== 'object' || value === null) return false;
+  const call = value as Partial<Record<keyof ToolCall, unknown>>;
+  return (
+    call.type === 'tool_call' &&
+    typeof call.id === 'string' &&
+    call.id.length > 0 &&
+    typeof call.name === 'string' &&
+    typeof call.arguments === 'object' &&
+    call.arguments !== null &&
+    !Array.isArray(call.arguments)
   );
 }
 

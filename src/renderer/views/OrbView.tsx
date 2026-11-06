@@ -29,8 +29,8 @@ export function OrbView() {
   const theme = useTimeTheme(ui.themeMode);
   const mood = selectMood(state);
 
-  // Every streamed chunk nudges the glow.
-  const activity = state.messages.at(-1)?.text.length ?? 0;
+  // Every streamed chunk nudges the glow; every action Yuka takes flashes it.
+  const activity = (state.messages.at(-1)?.text.length ?? 0) + state.toolRuns * 1000;
 
   const gesture = useRef<{ x: number; y: number; dragging: boolean } | null>(null);
 

@@ -53,6 +53,7 @@ export class SessionHub extends EventEmitter<SessionHubEvents> {
       if (event.state !== 'connected') this.setBusy(false);
       return;
     }
+    if (event.kind !== 'agent') return; // tool activity and confirmations do not change it
     switch (event.event.type) {
       case 'assistant_start':
         this.setBusy(true);

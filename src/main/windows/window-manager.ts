@@ -29,13 +29,17 @@ import {
   clampRect,
   defaultOrbBounds,
   isOverOrb,
+  nearestCorner,
   ORB_WINDOW_SIZE,
+  orbBoundsAtCorner,
   PANEL_MIN_HEIGHT,
   placePanel,
   type Point,
   type Rect,
   rectContains,
+  type ScreenCorner,
 } from '../../shared/geometry';
+import type { UiController, UiSnapshot } from '../tools/ui-tool-host';
 import { OpacityAnimator } from './opacity-animator';
 import { createOrbWindow } from './orb-window';
 import { createPanelWindow } from './panel-window';
@@ -68,7 +72,7 @@ interface WindowManagerOptions {
  *   – drags the orb, keeps it on screen, places the panel next to it;
  *   – the context menu, the global shortcut, the theme mode.
  */
-export class WindowManager {
+export class WindowManager implements UiController {
   private orb!: BrowserWindow;
   private panel!: BrowserWindow;
   private panelFade!: OpacityAnimator;
@@ -232,13 +236,46 @@ export class WindowManager {
     Menu.buildFromTemplate(template).popup({ window: this.orb });
   }
 
-  // ------------------------------------------------------------------ internals
+  // ------------------------------------------------------------------ UiController (tools)
 
-  private setThemeMode(mode: ThemeMode): void {
+  snapshot(): UiSnapshot {
+    const orbBounds = this.orb.getBounds();
+    return {
+      themeMode: this.themeMode,
+      panelOpen: isOpen(this.presence.phase),
+      pinned: this.presence.pinned,
+      corner: nearestCorner(orbBounds, this.workAreaFor(orbBounds)),
+    };
+  }
+
+  setThemeMode(mode: ThemeMode): void {
     this.themeMode = mode;
     this.options.settings.update({ themeMode: mode });
     this.broadcastUi();
   }
+
+  setPinned(pinned: boolean): void {
+    this.dispatch({ type: 'pin', pinned });
+  }
+
+  showPanel(): void {
+    this.dispatch({ type: 'show' });
+  }
+
+  moveOrbToCorner(corner: ScreenCorner): void {
+    if (this.drag) return; // the user is moving it right now
+    const current = this.orb.getBounds();
+    const target = orbBoundsAtCorner(this.workAreaFor(current), corner);
+    this.orb.setBounds(target, true);
+    this.options.settings.update({ orb: { x: target.x, y: target.y } });
+    if (isVisible(this.presence.phase)) this.layoutPanel(true);
+  }
+
+  quit(): void {
+    app.quit();
+  }
+
+  // ------------------------------------------------------------------ internals
 
   private toggleFromShortcut(): void {
     if (isOpen(this.presence.phase)) {

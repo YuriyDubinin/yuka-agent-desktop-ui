@@ -6,11 +6,16 @@ import {
   type ConnectionState,
   type FaceCommand,
   isAgentEvent,
+  isToolCall,
+  type ToolCall,
 } from '../shared/protocol';
 
 interface AgentConnectionEvents {
   state: [ConnectionState];
+  /** A conversation message (part of the transcript). */
   event: [AgentEvent];
+  /** The agent asks to run one of the face's tools (protocol v2). */
+  toolCall: [ToolCall];
 }
 
 interface AgentConnectionOptions {
@@ -91,8 +96,25 @@ export class AgentConnection extends EventEmitter<AgentConnectionEvents> {
       console.warn('[yuka] ignoring malformed message:', line);
       return;
     }
+    if (isToolCall(parsed)) {
+      this.emit('toolCall', parsed);
+      return;
+    }
     if (isAgentEvent(parsed)) {
       this.emit('event', parsed);
+      return;
+    }
+    // A malformed tool_call still gets its one answer, so the agent does not wait for it.
+    const { type, id } = (parsed ?? {}) as { type?: unknown; id?: unknown };
+    if (type === 'tool_call' && typeof id === 'string' && id) {
+      this.send({
+        type: 'tool_result',
+        id,
+        content: [
+          { type: 'text', text: 'Некорректный tool_call: нужны строка name и объект arguments.' },
+        ],
+        isError: true,
+      });
     }
   }
 

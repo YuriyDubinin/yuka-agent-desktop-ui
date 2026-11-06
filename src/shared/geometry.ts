@@ -128,3 +128,31 @@ export function placePanel(
   const chosen = candidates.find((candidate) => candidate.fits) ?? candidates[0];
   return { bounds: clampRect(chosen.rect, area), placement: chosen.placement };
 }
+
+export type ScreenCorner = 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+export const SCREEN_CORNERS: readonly ScreenCorner[] = [
+  'top_left',
+  'top_right',
+  'bottom_left',
+  'bottom_right',
+];
+
+/** The orb window in a corner of the work area (flush with its edges, like the default). */
+export function orbBoundsAtCorner(area: Rect, corner: ScreenCorner): Rect {
+  const left = corner.endsWith('left');
+  const top = corner.startsWith('top');
+  return {
+    x: left ? area.x : area.x + area.width - ORB_WINDOW_SIZE,
+    y: top ? area.y : area.y + area.height - ORB_WINDOW_SIZE,
+    width: ORB_WINDOW_SIZE,
+    height: ORB_WINDOW_SIZE,
+  };
+}
+
+/** The corner of the work area nearest to the orb. */
+export function nearestCorner(orbBounds: Rect, area: Rect): ScreenCorner {
+  const c = center(orbBounds);
+  const left = c.x < area.x + area.width / 2;
+  const top = c.y < area.y + area.height / 2;
+  return `${top ? 'top' : 'bottom'}_${left ? 'left' : 'right'}`;
+}

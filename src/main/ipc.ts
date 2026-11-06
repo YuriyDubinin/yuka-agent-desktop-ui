@@ -2,6 +2,7 @@ import { app, ipcMain, type IpcMainEvent, nativeTheme } from 'electron';
 
 import { IPC, type ViewName } from '../shared/protocol';
 import type { AgentConnection } from './agent-connection';
+import type { Confirmations } from './confirmations';
 import type { SessionHub } from './session-hub';
 import type { WindowManager } from './windows/window-manager';
 
@@ -9,13 +10,14 @@ interface IpcDeps {
   windows: WindowManager;
   session: SessionHub;
   connection: AgentConnection | null;
+  confirmations: Confirmations;
 }
 
 /**
  * Every channel accepts messages only from the window it is meant for, and validates its
  * arguments: the renderer is treated as untrusted input.
  */
-export function registerIpc({ windows, session, connection }: IpcDeps): void {
+export function registerIpc({ windows, session, connection, confirmations }: IpcDeps): void {
   const on = (
     channel: string,
     views: readonly ViewName[],
@@ -60,5 +62,10 @@ export function registerIpc({ windows, session, connection }: IpcDeps): void {
     if (typeof height === 'number' && Number.isFinite(height)) windows.setPanelHeight(height);
   });
   on(IPC.hidePanel, ['panel'], () => windows.dismissPanel());
+  on(IPC.confirmAnswer, ['panel'], (_event, callId, accepted) => {
+    if (typeof callId === 'string' && typeof accepted === 'boolean') {
+      confirmations.answer(callId, accepted);
+    }
+  });
   on(IPC.quit, both, () => app.quit());
 }

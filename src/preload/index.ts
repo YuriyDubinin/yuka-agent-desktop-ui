@@ -38,6 +38,7 @@ const bridge: YukaBridge = {
   setComposerState: (state) => ipcRenderer.send(IPC.composerState, state),
   setPanelHeight: (height) => ipcRenderer.send(IPC.panelHeight, height),
   hidePanel: () => ipcRenderer.send(IPC.hidePanel),
+  confirmAnswer: (callId, accepted) => ipcRenderer.send(IPC.confirmAnswer, callId, accepted),
   quit: () => ipcRenderer.send(IPC.quit),
 };
 

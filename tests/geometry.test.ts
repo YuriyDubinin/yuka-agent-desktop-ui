@@ -6,6 +6,8 @@ import {
   clampRect,
   defaultOrbBounds,
   isOverOrb,
+  nearestCorner,
+  orbBoundsAtCorner,
   ORB_RADIUS,
   ORB_WINDOW_SIZE,
   PANEL_GAP,
@@ -15,6 +17,7 @@ import {
   placePanel,
   type Rect,
   rectContains,
+  SCREEN_CORNERS,
   SCREEN_MARGIN,
 } from '../src/shared/geometry.ts';
 
@@ -91,5 +94,16 @@ describe('geometry', () => {
     assert.equal(clampPanelHeight(10), PANEL_MIN_HEIGHT);
     assert.equal(clampPanelHeight(10_000), PANEL_MAX_HEIGHT);
     assert.equal(clampPanelHeight(300.4), 300);
+  });
+});
+
+describe('corners', () => {
+  test('orb in each corner is flush with the work area and maps back to that corner', () => {
+    for (const corner of SCREEN_CORNERS) {
+      const orb = orbBoundsAtCorner(screen, corner);
+      assert.ok(inside(orb, screen), corner);
+      assert.equal(nearestCorner(orb, screen), corner);
+    }
+    assert.deepEqual(orbBoundsAtCorner(screen, 'bottom_right'), defaultOrbBounds(screen));
   });
 });

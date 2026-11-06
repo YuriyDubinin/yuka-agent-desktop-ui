@@ -2,12 +2,17 @@ import type { AgentEvent, AgentInfo, ConnectionState, FaceEvent } from '../../sh
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant' | 'error';
+  /** `tool`: Yuka runs an action of the interface; `confirm`: she asks before a risky one. */
+  role: 'user' | 'assistant' | 'error' | 'tool' | 'confirm';
   text: string;
   /** True while the assistant reply is still streaming in. */
   streaming: boolean;
   /** Wall-clock time the message appeared (ms since epoch). */
   at: number;
+  /** role `tool`: progress of the action and its one-line outcome. */
+  tool?: { callId: string; status: 'running' | 'done' | 'failed'; summary?: string };
+  /** role `confirm`: the question and the user's answer. */
+  confirm?: { callId: string; status: 'pending' | 'accepted' | 'declined' };
 }
 
 export interface ChatState {
@@ -18,6 +23,8 @@ export interface ChatState {
   awaitingReply: boolean;
   /** Counter for ids of messages that have none on the wire. */
   localIds: number;
+  /** Tool actions started in this session (each one flashes the orb). */
+  toolRuns: number;
 }
 
 /** Every action carries its timestamp so the reducer stays pure. */
@@ -29,7 +36,18 @@ export const initialChatState: ChatState = {
   messages: [],
   awaitingReply: false,
   localIds: 0,
+  toolRuns: 0,
 };
+
+/**
+ * Puts an action line before the reply it belongs to: the turn's reply message is created
+ * (empty) when the turn starts, and its text arrives after the tools have run.
+ */
+function insertBeforeEmptyReply(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
+  const reply = messages.findLastIndex((m) => m.role === 'assistant' && m.streaming);
+  if (reply === -1 || messages[reply].text !== '') return [...messages, message];
+  return [...messages.slice(0, reply), message, ...messages.slice(reply)];
+}
 
 function updateMessage(
   messages: ChatMessage[],
@@ -119,6 +137,57 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
     case 'agent':
       return reduceAgentEvent(state, event.event, at);
+    case 'tool': {
+      const id = `tool-${event.callId}`;
+      if (event.phase === 'start') {
+        return {
+          ...state,
+          toolRuns: state.toolRuns + 1,
+          messages: insertBeforeEmptyReply(state.messages, {
+            id,
+            role: 'tool',
+            text: event.title,
+            streaming: false,
+            at,
+            tool: { callId: event.callId, status: 'running' },
+          }),
+        };
+      }
+      return {
+        ...state,
+        messages: updateMessage(state.messages, id, (m) => ({
+          ...m,
+          tool: {
+            callId: event.callId,
+            status: event.ok ? 'done' : 'failed',
+            summary: event.summary,
+          },
+        })),
+      };
+    }
+    case 'confirm': {
+      const id = `confirm-${event.callId}`;
+      if (event.phase === 'ask') {
+        return {
+          ...state,
+          messages: insertBeforeEmptyReply(state.messages, {
+            id,
+            role: 'confirm',
+            text: event.question,
+            streaming: false,
+            at,
+            confirm: { callId: event.callId, status: 'pending' },
+          }),
+        };
+      }
+      return {
+        ...state,
+        messages: updateMessage(state.messages, id, (m) => ({
+          ...m,
+          confirm: { callId: event.callId, status: event.accepted ? 'accepted' : 'declined' },
+        })),
+      };
+    }
   }
 }
 
